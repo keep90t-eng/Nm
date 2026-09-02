@@ -1,0 +1,8 @@
+{
+  "name": "Remix سلة الديرة",
+  "description": "متجر فواكه إلكتروني طازج يتميز بخدمة التوصيل السريع وطرق دفع متعددة وتجربة تسوق سهلة وبسيطة.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

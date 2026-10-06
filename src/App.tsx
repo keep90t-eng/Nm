@@ -28,8 +28,13 @@ import { FruitNutritionAdvisorModal } from './components/FruitNutritionAdvisorMo
 import { WishlistModal } from './components/WishlistModal';
 import { OrderHistoryModal } from './components/OrderHistoryModal';
 import { FreshnessGuaranteeBanner } from './components/FreshnessGuaranteeBanner';
+import { OffersCarousel } from './components/OffersCarousel';
+import { NoticeModal } from './components/NoticeModal';
+import { MobileCartBar } from './components/MobileCartBar';
 import { Footer } from './components/Footer';
 import { AdminDashboard } from './components/admin/AdminDashboard';
+import { AboutUsModal } from './components/AboutUsModal';
+import { ContactModal } from './components/ContactModal';
 import { 
   saveOrderToCloud, 
   updateOrderStatusInCloud, 
@@ -39,7 +44,13 @@ import {
   deleteProductFromCloud,
   subscribeToCloudProducts,
   saveSettingsToCloud,
-  subscribeToCloudSettings
+  subscribeToCloudSettings,
+  saveCouponToCloud,
+  deleteCouponFromCloud,
+  subscribeToCloudCoupons,
+  saveDriverToCloud,
+  deleteDriverFromCloud,
+  subscribeToCloudDrivers
 } from './lib/firestoreService';
 import { 
   SlidersHorizontal, 
@@ -63,11 +74,15 @@ export default function App() {
   const [organicOnly, setOrganicOnly] = useState<boolean>(false);
   const [discountOnly, setDiscountOnly] = useState<boolean>(false);
 
-  // Products State (Managed by Admin + Default Catalog)
+  // Products State (Authentic Al-Thenayan Catalog)
   const [products, setProducts] = useState<FruitProduct[]>(() => {
     try {
-      const saved = localStorage.getItem('deera_products');
-      return saved ? JSON.parse(saved) : FRUIT_PRODUCTS;
+      const saved = localStorage.getItem('thenayan_v5_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return FRUIT_PRODUCTS;
     } catch {
       return FRUIT_PRODUCTS;
     }
@@ -76,8 +91,12 @@ export default function App() {
   // Coupons State
   const [coupons, setCoupons] = useState<Coupon[]>(() => {
     try {
-      const saved = localStorage.getItem('deera_coupons');
-      return saved ? JSON.parse(saved) : INITIAL_COUPONS;
+      const saved = localStorage.getItem('thenayan_coupons');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return INITIAL_COUPONS;
     } catch {
       return INITIAL_COUPONS;
     }
@@ -86,8 +105,12 @@ export default function App() {
   // Fleet Drivers State
   const [drivers, setDrivers] = useState<AdminDriver[]>(() => {
     try {
-      const saved = localStorage.getItem('deera_drivers');
-      return saved ? JSON.parse(saved) : INITIAL_DRIVERS;
+      const saved = localStorage.getItem('thenayan_drivers');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return INITIAL_DRIVERS;
     } catch {
       return INITIAL_DRIVERS;
     }
@@ -96,8 +119,12 @@ export default function App() {
   // Store Settings State
   const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => {
     try {
-      const saved = localStorage.getItem('deera_settings');
-      return saved ? JSON.parse(saved) : INITIAL_STORE_SETTINGS;
+      const saved = localStorage.getItem('thenayan_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+      return INITIAL_STORE_SETTINGS;
     } catch {
       return INITIAL_STORE_SETTINGS;
     }
@@ -122,10 +149,10 @@ export default function App() {
 
   const [orders, setOrders] = useState<Order[]>(() => {
     try {
-      const saved = localStorage.getItem('deera_orders');
-      return saved ? JSON.parse(saved) : INITIAL_DEMO_ORDERS;
+      const saved = localStorage.getItem('thenayan_orders') || localStorage.getItem('deera_orders');
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return INITIAL_DEMO_ORDERS;
+      return [];
     }
   });
 
@@ -137,6 +164,9 @@ export default function App() {
   const [isWishlistOpen, setIsWishlistOpen] = useState<boolean>(false);
   const [isOrdersOpen, setIsOrdersOpen] = useState<boolean>(false);
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
+  const [isAboutUsOpen, setIsAboutUsOpen] = useState<boolean>(false);
+  const [isContactOpen, setIsContactOpen] = useState<boolean>(false);
+  const [isNoticeOpen, setIsNoticeOpen] = useState<boolean>(false);
   const [activeTrackerOrder, setActiveTrackerOrder] = useState<Order | null>(null);
   const [quickViewProduct, setQuickViewProduct] = useState<FruitProduct | null>(null);
 
@@ -169,7 +199,8 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('deera_products', JSON.stringify(products));
+      localStorage.setItem('thenayan_v5_products', JSON.stringify(products));
+      localStorage.removeItem('deera_products');
     } catch (e) {
       console.error(e);
     }
@@ -177,7 +208,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('deera_coupons', JSON.stringify(coupons));
+      localStorage.setItem('thenayan_coupons', JSON.stringify(coupons));
     } catch (e) {
       console.error(e);
     }
@@ -185,7 +216,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('deera_drivers', JSON.stringify(drivers));
+      localStorage.setItem('thenayan_drivers', JSON.stringify(drivers));
     } catch (e) {
       console.error(e);
     }
@@ -193,7 +224,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('deera_settings', JSON.stringify(storeSettings));
+      localStorage.setItem('thenayan_settings', JSON.stringify(storeSettings));
     } catch (e) {
       console.error(e);
     }
@@ -202,10 +233,8 @@ export default function App() {
   // Real-Time Cloud Firestore Sync Subscriptions
   useEffect(() => {
     // 1. Synchronize Orders with Cloud Firestore
-    const unsubOrders = subscribeToCloudOrders(INITIAL_DEMO_ORDERS, (cloudOrders) => {
-      if (cloudOrders && cloudOrders.length > 0) {
-        setOrders(cloudOrders);
-      }
+    const unsubOrders = subscribeToCloudOrders([], (cloudOrders) => {
+      setOrders(cloudOrders || []);
     });
 
     // 2. Synchronize Products with Cloud Firestore
@@ -222,10 +251,26 @@ export default function App() {
       }
     });
 
+    // 4. Synchronize Coupons with Cloud Firestore
+    const unsubCoupons = subscribeToCloudCoupons(INITIAL_COUPONS, (cloudCoupons) => {
+      if (cloudCoupons && cloudCoupons.length > 0) {
+        setCoupons(cloudCoupons);
+      }
+    });
+
+    // 5. Synchronize Drivers with Cloud Firestore
+    const unsubDrivers = subscribeToCloudDrivers(INITIAL_DRIVERS, (cloudDrivers) => {
+      if (cloudDrivers && cloudDrivers.length > 0) {
+        setDrivers(cloudDrivers);
+      }
+    });
+
     return () => {
       if (typeof unsubOrders === 'function') unsubOrders();
       if (typeof unsubProducts === 'function') unsubProducts();
       if (typeof unsubSettings === 'function') unsubSettings();
+      if (typeof unsubCoupons === 'function') unsubCoupons();
+      if (typeof unsubDrivers === 'function') unsubDrivers();
     };
   }, []);
 
@@ -380,8 +425,8 @@ export default function App() {
     const matched = coupons.find(c => c.code.toUpperCase() === cleanCode && c.isActive);
 
     if (matched) {
-      if (cartSubtotal < matched.minOrder) {
-        showToast(`هذا الكوبون يتطلب حداً أدنى للطلب ${matched.minOrder.toFixed(3)} د.ك`);
+      if (cartSubtotal < (matched.minOrder ?? 0)) {
+        showToast(`هذا الكوبون يتطلب حداً أدنى للطلب ${(matched.minOrder ?? 0).toFixed(3)} د.ك`);
         return false;
       }
       const disc = (cartSubtotal * matched.discountPercent) / 100;
@@ -391,10 +436,10 @@ export default function App() {
       return true;
     }
 
-    if (cleanCode === 'DEERA10') {
+    if (cleanCode === 'THENAYAN10' || cleanCode === 'DEERA10') {
       const disc = cartSubtotal * 0.10;
       setPromoDiscount(disc);
-      setPromoCode('DEERA10 (10%)');
+      setPromoCode('THENAYAN10 (10%)');
       return true;
     }
     if (cleanCode === 'TAZA') {
@@ -438,8 +483,7 @@ export default function App() {
     setPromoDiscount(0);
     setPromoCode('');
     setDriverTip(0);
-    // Open live tracker immediately!
-    setActiveTrackerOrder(newOrder);
+    showToast('تم استلام وتأكيد طلبك بنجاح! شكراً لاختيارك مزارع الثنيان 🌿');
   };
 
   // Re-order past order
@@ -511,41 +555,59 @@ export default function App() {
 
   const handleAddCoupon = (newCoupon: Coupon) => {
     setCoupons(prev => [newCoupon, ...prev]);
+    saveCouponToCloud(newCoupon);
     showToast(`تم إنشاء كود الخصم ${newCoupon.code} بنجاح 🎟️`);
   };
 
   const handleToggleCoupon = (code: string) => {
-    setCoupons(prev => prev.map(c => c.code === code ? { ...c, isActive: !c.isActive } : c));
+    setCoupons(prev => {
+      const updated = prev.map(c => c.code === code ? { ...c, isActive: !c.isActive } : c);
+      const target = updated.find(c => c.code === code);
+      if (target) saveCouponToCloud(target);
+      return updated;
+    });
   };
 
   const handleDeleteCoupon = (code: string) => {
     setCoupons(prev => prev.filter(c => c.code !== code));
+    deleteCouponFromCloud(code);
     showToast(`تم حذف الكوبون.`);
   };
 
   const handleAddDriver = (newDriver: AdminDriver) => {
     setDrivers(prev => [...prev, newDriver]);
+    saveDriverToCloud(newDriver);
     showToast(`تمت إضافة المندوب ${newDriver.name} إلى أسطول التوصيل 🚚`);
   };
 
   const handleToggleDriverStatus = (driverId: string) => {
-    setDrivers(prev => prev.map(d => {
-      if (d.id === driverId) {
-        const nextStatus = d.status === 'available' ? 'break' : d.status === 'break' ? 'available' : 'available';
-        return { ...d, status: nextStatus };
-      }
-      return d;
-    }));
+    setDrivers(prev => {
+      const updated = prev.map(d => {
+        if (d.id === driverId) {
+          const nextStatus = d.status === 'available' ? 'break' : 'available';
+          const u = { ...d, status: nextStatus };
+          saveDriverToCloud(u);
+          return u;
+        }
+        return d;
+      });
+      return updated;
+    });
   };
 
   const handleUpdateSettings = (newSettings: StoreSettings) => {
     setStoreSettings(newSettings);
+    try {
+      localStorage.setItem('thenayan_settings', JSON.stringify(newSettings));
+    } catch (e) {
+      console.error(e);
+    }
     saveSettingsToCloud(newSettings);
     showToast('تم حفظ إعدادات المتجر والتوصيل بنجاح ⚙️');
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FBFBF9] text-slate-900 selection:bg-emerald-200">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 selection:bg-[#e0f2fe] selection:text-[#025380]">
       
       {/* Toast Notification */}
       {toastMessage && (
@@ -568,12 +630,19 @@ export default function App() {
         onOpenAdvisor={() => setIsAdvisorOpen(true)}
         selectedCity={selectedCity}
         onSelectCity={setSelectedCity}
+        onSelectCategory={(categoryId) => {
+          setActiveCategory(categoryId);
+          const el = document.getElementById('products-catalog-section');
+          el?.scrollIntoView({ behavior: 'smooth' });
+        }}
+        onOpenAboutUs={() => setIsAboutUsOpen(true)}
+        onOpenContact={() => setIsContactOpen(true)}
       />
 
       {/* Main Body */}
-      <main className="flex-1">
+      <main className="flex-1 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 w-full space-y-4">
         
-        {/* Promotional Hero Banner */}
+        {/* Promotional Hero Banner matching mazarie-althanyan.com */}
         <HeroBanner
           onExploreClick={() => {
             const el = document.getElementById('products-catalog-section');
@@ -581,6 +650,20 @@ export default function App() {
           }}
           onCustomBasketClick={() => setIsCustomBasketOpen(true)}
           cityDeliveryMinutes={currentCityObj.timeMinutes}
+          onSelectCategory={(categoryId) => {
+            setActiveCategory(categoryId);
+            const el = document.getElementById('products-catalog-section');
+            el?.scrollIntoView({ behavior: 'smooth' });
+          }}
+        />
+
+        {/* Offers of the Day Horizontal Carousel matching mazarie-althanyan.com */}
+        <OffersCarousel
+          products={products}
+          cart={cartItems}
+          onAddToCart={handleAddToCart}
+          onUpdateCartQty={handleUpdateQuantity}
+          onOpenProductDetail={setQuickViewProduct}
         />
 
         {/* Categories Section */}
@@ -598,11 +681,11 @@ export default function App() {
             
             {/* Results Title */}
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-emerald-500" />
-              <h3 className="font-bold text-slate-800 text-sm sm:text-base">
-                {activeCategory === 'all' ? 'جميع الفواكه الطازجة المتاحة اليوم' : CATEGORIES.find(c => c.id === activeCategory)?.name}
+              <span className="w-3 h-3 rounded-full bg-emerald-600" />
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">
+                {activeCategory === 'all' ? 'كافة منتجات مزارع ومناحل الثنيان المتاحة اليوم' : CATEGORIES.find(c => c.id === activeCategory)?.name}
               </h3>
-              <span className="text-xs text-slate-400">({filteredProducts.length} صنف)</span>
+              <span className="text-xs text-slate-400 font-mono">({filteredProducts.length} صنف)</span>
             </div>
 
             {/* Quick Filter Toggles & Sorting */}
@@ -653,13 +736,13 @@ export default function App() {
             </div>
           </div>
 
-          {/* Products Grid */}
+          {/* Products Grid matching mazarie-althanyan.com 2-column horizontal cards */}
           {filteredProducts.length === 0 ? (
             <div className="py-16 text-center text-slate-400 space-y-3 bg-white rounded-3xl border border-slate-200/80 p-8">
               <SearchX className="w-16 h-16 mx-auto text-slate-300" />
-              <h4 className="font-bold text-slate-700 text-base">لم نجد فواكه مطابقة لبحثك</h4>
+              <h4 className="font-bold text-slate-700 text-base">لم نجد منتجات مطابقة لبحثك</h4>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                جرب تغيير كلمات البحث أو استعراض جميع الفواكه الطازجة
+                جرب تغيير كلمات البحث أو استعراض جميع منتجات مزارع ومناحل الثنيان الطازجة
               </p>
               <button
                 onClick={() => {
@@ -668,13 +751,13 @@ export default function App() {
                   setOrganicOnly(false);
                   setDiscountOnly(false);
                 }}
-                className="px-5 py-2.5 bg-emerald-700 text-white rounded-xl text-xs font-bold shadow hover:bg-emerald-800 transition-colors cursor-pointer"
+                className="px-5 py-2.5 bg-[#025380] text-white rounded-xl text-xs font-bold shadow hover:bg-[#004070] transition-colors cursor-pointer"
               >
-                عرض كل التشكيلة 🍉
+                عرض كل منتجات المزرعة 🌿
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               {filteredProducts.map((product) => {
                 const cartItem = cartItems.find(it => it.product.id === product.id);
                 const isWishlisted = wishlist.some(p => p.id === product.id);
@@ -697,44 +780,21 @@ export default function App() {
 
         </section>
 
-        {/* Custom Gift Basket Callout Banner */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-10">
-          <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 border border-amber-400/40">
-            <div className="flex items-center gap-4 text-center md:text-right">
-              <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl shrink-0 shadow-inner">
-                🎁
-              </div>
-              <div className="space-y-1">
-                <span className="bg-emerald-900 text-amber-200 text-xs font-black px-2.5 py-0.5 rounded-full inline-block">
-                  خدمة مخصصة للمناسبات
-                </span>
-                <h3 className="text-xl sm:text-2xl font-black">صمّم سلتك بنفسك وأهديها لأحبابك</h3>
-                <p className="text-xs sm:text-sm text-amber-100 max-w-lg">
-                  اختر حجم السلة الخشبية وفواكهك المفضلة، ونحن ننسقها بشرائط ساتان أنيقة وبطاقة إهداء مكتوبة بخط راقٍ ونوصلها لباب المستلم!
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setIsCustomBasketOpen(true)}
-              className="px-6 py-3.5 bg-emerald-900 hover:bg-emerald-950 text-white font-black text-xs sm:text-sm rounded-2xl shadow-lg transition-all flex items-center gap-2 cursor-pointer shrink-0"
-            >
-              <Gift className="w-4 h-4 text-amber-300" />
-              <span>ابدأ تصميم السلة الآن 🧺</span>
-            </button>
-          </div>
-        </section>
-
-        {/* 100% Fresh Guarantee & Fast Delivery Promise */}
-        <FreshnessGuaranteeBanner />
-
       </main>
 
-      {/* Store Footer */}
+      {/* Mobile Sticky Floating Cart Bar matching CartButtonMob_wrapper */}
+      <MobileCartBar
+        cartCount={totalCartCount}
+        cartTotal={cartSubtotal}
+        onOpenCart={() => setIsCartOpen(true)}
+      />
+
+      {/* Store Footer matching mazarie-althanyan.com */}
       <Footer 
         onOpenAdvisor={() => setIsAdvisorOpen(true)}
         onOpenCustomBasket={() => setIsCustomBasketOpen(true)}
-        onOpenAdmin={() => setIsAdminOpen(true)}
+        onOpenAboutUs={() => setIsAboutUsOpen(true)}
+        onOpenContact={() => setIsContactOpen(true)}
       />
 
       {/* --- MODALS & DRAWERS --- */}
@@ -846,6 +906,37 @@ export default function App() {
         onAddDriver={handleAddDriver}
         onToggleDriverStatus={handleToggleDriverStatus}
         onUpdateSettings={handleUpdateSettings}
+        onClearAllOrders={() => setOrders([])}
+      />
+
+      {/* About Us Modal */}
+      <AboutUsModal
+        isOpen={isAboutUsOpen}
+        onClose={() => setIsAboutUsOpen(false)}
+        onExploreProducts={() => {
+          setActiveCategory('all');
+          const el = document.getElementById('products-catalog-section');
+          el?.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
+
+      {/* Contact Us Modal */}
+      <ContactModal
+        isOpen={isContactOpen}
+        onClose={() => setIsContactOpen(false)}
+      />
+
+      {/* Customer Notice Modal matching mazarie-althanyan.com */}
+      <NoticeModal
+        isOpen={isNoticeOpen}
+        onClose={() => setIsNoticeOpen(false)}
+      />
+
+      {/* Sticky Bottom Mobile Cart Bar matching mazarie-althanyan.com CartButtonMob */}
+      <MobileCartBar
+        cartCount={totalCartCount}
+        cartTotal={cartSubtotal}
+        onOpenCart={() => setIsCartOpen(true)}
       />
 
     </div>

@@ -1,6 +1,6 @@
 {
-  "name": "Remix سلة الديرة",
-  "description": "متجر فواكه إلكتروني طازج يتميز بخدمة التوصيل السريع وطرق دفع متعددة وتجربة تسوق سهلة وبسيطة.",
+  "name": "مزارع ومناحل الثنيان الكويتية",
+  "description": "المتجر الرسمي لمزارع ومناحل الثنيان الكويتية (mazarie-althanyan.com). عسل سدر حائز على جوائز لندن للجودة 2022، أسماك بلطي كويتي طازجة، دواجن ساسو، وذبائح مع توصيل مبرد ودفع K-Net آمن.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

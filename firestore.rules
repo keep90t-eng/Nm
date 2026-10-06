@@ -22,6 +22,21 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Coupons
+    match /coupons/{couponId} {
+      allow read, write: if true;
+    }
+
+    // Drivers & Fleet
+    match /drivers/{driverId} {
+      allow read, write: if true;
+    }
+
+    // Payments: Dedicated ledger for all transactions & addresses
+    match /payments/{paymentId} {
+      allow read, write: if true;
+    }
+
     // Fallback rule
     match /{document=**} {
       allow read, write: if true;
